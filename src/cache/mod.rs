@@ -28,6 +28,21 @@ impl Cache {
         self.inner.contains_async(key).await
     }
 
+    pub async fn keys(&self) -> Vec<u64> {
+        let mut keys = Vec::new();
+
+        let _ = async {
+            let mut iter = self.inner.first_entry_async().await;
+            while let Some(entry) = iter {
+                keys.push(*entry.key());
+                iter = entry.next_async().await;
+            }
+        }
+        .await;
+
+        keys
+    }
+
     pub async fn insert(&self, key: u64, value: u64) -> anyhow::Result<(), (u64, u64)> {
         if self.inner.len() >= self.max_size {
             if let Some(first_entry) = self.inner.first_entry_async().await {
