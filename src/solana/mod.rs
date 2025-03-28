@@ -19,6 +19,9 @@ pub struct SolanaClient {
 static SOLANA_DEVNET: &str = "https://solana-mainnet.api.syndica.io/api-key/232m5n6PA1xpfTEwbqiGiBhrWzUCr1Jaj6vdD6cfp3PWyEQ5jnPGdxijJmHKUYLUKP4T4WV
 NM95kw157PsfyyBbqRDyrxtwykpG";
 
+static SOLANA_BLOCK_THROTTLE_MS: u64 = 450;
+static SOLANA_CACHE_THROTTLE_MS: u64 = 150;
+
 impl SolanaClient {
     pub async fn init(cache: &Arc<Cache>) -> anyhow::Result<Self, SolanaError> {
         let inner = RpcClient::new(SOLANA_DEVNET.to_string());
@@ -53,20 +56,13 @@ impl SolanaClient {
                 }
             }
 
-            tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+            tokio::time::sleep(tokio::time::Duration::from_millis(SOLANA_BLOCK_THROTTLE_MS)).await;
         }
     }
 
     pub async fn contiguously_get_confirmed_blocks(&mut self) -> anyhow::Result<(), SolanaError> {
-        let original_last_slot = {
-            let guard = self.last_confirmed_slot.lock().await;
-            *guard
-        };
-        let mut last_slot = original_last_slot;
-
         loop {
             println!("Cache size: {}", self.confirmed_blocks.len().await);
-            // Check if the shared last_confirmed_slot is still None.
             if self.last_confirmed_slot.lock().await.is_none() {
                 println!("Is none!");
                 continue;
@@ -77,7 +73,6 @@ impl SolanaClient {
             let start_slot = if slot < 10 { 0 } else { slot - 10 };
             let end_slot = slot - 1;
 
-            // get the next confirmed block
             let confirmed_blocks = self
                 .inner
                 .get_blocks(start_slot, Some(end_slot))
@@ -85,11 +80,9 @@ impl SolanaClient {
 
             println!("Confirmed blocks: {:?}", confirmed_blocks);
 
-            last_slot = Some(slot - 10);
-
             {
                 let mut guard = self.last_confirmed_slot.lock().await;
-                *guard = last_slot;
+                *guard = Some(slot - 10);
             }
 
             // insert the confirmed block into the cache
@@ -97,21 +90,21 @@ impl SolanaClient {
                 if !self.confirmed_blocks.contains(slot).await {
                     println!("Inserting slot {} into cache.", slot);
 
-                    self.confirmed_blocks
-                        .insert(*slot, *slot)
-                        .await
-                        .unwrap_or_else(|_| {
-                            println!("Failed to insert {} into the cache.", slot);
-                        });
+                    if let Err(err) = self.confirmed_blocks.insert(*slot, *slot).await {
+                        println!("Failed to insert {} into the cache: {:?}", slot, err);
+                    }
                 }
             }
 
-            tokio::time::sleep(tokio::time::Duration::from_millis(150)).await;
+            // 150ms for throttling
+            tokio::time::sleep(tokio::time::Duration::from_millis(SOLANA_CACHE_THROTTLE_MS)).await;
         }
     }
 
     pub async fn is_slot_confirmed(&self, slot: Slot) -> bool {
-        self.inner.get_blocks(slot, Some(slot)).is_ok()
-            && self.confirmed_blocks.contains(&slot).await
+        self.inner
+            .get_blocks(slot, Some(slot))
+            .map(|blocks| !blocks.is_empty() && blocks[0] == slot)
+            .unwrap_or(false)
     }
 }

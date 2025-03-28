@@ -1,11 +1,10 @@
 use std::sync::Arc;
 
 use scc::{HashMap, hash_map::OccupiedEntry};
-use solana_sdk::clock::Slot;
 
 #[derive(Clone, Debug)]
 pub struct Cache {
-    inner: Arc<HashMap<Slot, Slot>>,
+    inner: Arc<HashMap<u64, u64>>,
     max_size: usize,
 }
 
@@ -25,39 +24,23 @@ impl Cache {
         self.inner.len() >= self.max_size
     }
 
-    pub async fn contains(&self, key: &Slot) -> bool {
+    pub async fn contains(&self, key: &u64) -> bool {
         self.inner.contains_async(key).await
     }
 
-    pub async fn insert(&self, key: Slot, value: Slot) -> anyhow::Result<()> {
-        // evict smallest Slot (u64) key if we exceed max_size
+    pub async fn insert(&self, key: u64, value: u64) -> anyhow::Result<(), (u64, u64)> {
         if self.inner.len() >= self.max_size {
-            let first_entry = self.inner.first_entry_async().await.unwrap();
-
-            println!("Removing oldest entry: {:?}", first_entry.key());
-
-            self.inner
-                .remove_async(first_entry.key())
-                .await
-                .unwrap_or_else(|| {
-                    println!("Failed to remove entry: {:?}", first_entry.key());
-                    (first_entry.key().clone(), first_entry.get().clone())
-                });
+            if let Some(first_entry) = self.inner.first_entry_async().await {
+                let oldest_key = *first_entry.key();
+                drop(first_entry);
+                let _ = self.inner.remove_async(&oldest_key).await;
+            }
         }
 
-        let r = self
-            .inner
-            .insert_async(key, value)
-            .await
-            .unwrap_or_else(|e| {
-                println!("Failed to insert entry: {:?}", e);
-                ()
-            });
-
-        r
+        self.inner.insert_async(key, value).await.map(|_| ())
     }
 
-    pub async fn get(&self, key: &Slot) -> Option<OccupiedEntry<'_, Slot, Slot>> {
+    pub async fn get(&self, key: &u64) -> Option<OccupiedEntry<'_, u64, u64>> {
         self.inner.get_async(key).await
     }
 }

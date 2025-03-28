@@ -11,7 +11,7 @@ pub async fn run() -> Result<(), CliError> {
     let (send, mut receive) = tokio::sync::mpsc::channel::<Result<(), CliError>>(1);
     let mut handles = vec![];
 
-    let max_size = 100;
+    let max_size = 1000;
 
     let cache = Arc::new(Cache::new(max_size));
     let mut solana = SolanaClient::init(&Arc::clone(&cache)).await?;
