@@ -12,3 +12,7 @@ serde = { version = "1.0", features = ["derive"] }
 solana-client = "2.2.4"
 solana-sdk = "2.2.1"
 thiserror = "2.0.12"
+async-trait = "0.1.88"
+
+[dev-dependencies]
+mockall = "0.13.0"

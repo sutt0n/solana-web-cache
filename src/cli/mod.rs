@@ -11,6 +11,8 @@ pub async fn run() -> Result<(), CliError> {
     let (send, mut receive) = tokio::sync::mpsc::channel::<Result<(), CliError>>(1);
     let mut handles = vec![];
 
+    // todo: pull into config
+    let get_blocks_chunk_size = 10;
     let max_size = 1000;
 
     let cache = Arc::new(Cache::new(max_size));
@@ -44,7 +46,7 @@ pub async fn run() -> Result<(), CliError> {
     handles.push(tokio::spawn(async move {
         let _ = solana_cache_send.try_send(
             solana
-                .contiguously_get_confirmed_blocks()
+                .contiguously_get_confirmed_blocks(get_blocks_chunk_size)
                 .await
                 .map_err(|e| CliError::SolanaError(e)),
         );
