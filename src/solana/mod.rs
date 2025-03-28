@@ -127,7 +127,8 @@ impl SolanaClientTrait for SolanaClient {
 
         self.inner
             .get_blocks(slot, Some(slot))
-            .await.is_ok_and(|blocks| blocks.contains(&slot))
+            .await
+            .is_ok_and(|blocks| blocks.contains(&slot))
     }
 }
 

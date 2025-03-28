@@ -12,10 +12,7 @@ use axum::{
 use error::WebError;
 use tokio::sync::Mutex;
 
-use crate::{
-    cache::Cache,
-    solana::SolanaClientTrait,
-};
+use crate::{cache::Cache, solana::SolanaClientTrait};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -43,9 +40,7 @@ pub async fn run_web(
 
     println!("Starting web server on port {}", port);
 
-    axum::serve(listener, app)
-        .await
-        .map_err(WebError::IoError)
+    axum::serve(listener, app).await.map_err(WebError::IoError)
 }
 
 async fn slot_get(State(app_state): State<AppState>, Path(slot): Path<u64>) -> impl IntoResponse {
