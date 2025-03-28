@@ -3,7 +3,7 @@ pub mod error;
 use std::sync::Arc;
 
 use axum::{
-    Json, Router,
+    Router,
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
@@ -14,7 +14,7 @@ use tokio::sync::Mutex;
 
 use crate::{
     cache::Cache,
-    solana::{SolanaClient, SolanaClientTrait},
+    solana::SolanaClientTrait,
 };
 
 #[derive(Clone)]
@@ -45,7 +45,7 @@ pub async fn run_web(
 
     axum::serve(listener, app)
         .await
-        .map_err(|e| WebError::IoError(e.into()))
+        .map_err(WebError::IoError)
 }
 
 async fn slot_get(State(app_state): State<AppState>, Path(slot): Path<u64>) -> impl IntoResponse {
