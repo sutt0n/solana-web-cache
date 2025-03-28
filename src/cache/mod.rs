@@ -59,3 +59,40 @@ impl Cache {
         self.inner.get_async(key).await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_cache() {
+        let cache = Cache::new(2);
+        assert_eq!(cache.len().await, 0);
+
+        cache.insert(1, 10).await.unwrap();
+        assert!(cache.contains(&1).await);
+
+        cache.insert(2, 20).await.unwrap();
+        assert!(cache.contains(&2).await);
+
+        // eviction
+        cache.insert(3, 30).await.unwrap();
+        assert!(!cache.contains(&1).await);
+        assert!(cache.contains(&2).await);
+        assert!(cache.contains(&3).await);
+    }
+
+    #[tokio::test]
+    async fn test_keys() {
+        let cache = Cache::new(3);
+        cache.insert(1, 10).await.unwrap();
+        cache.insert(2, 20).await.unwrap();
+        cache.insert(3, 30).await.unwrap();
+
+        let keys = cache.keys().await;
+        assert_eq!(keys.len(), 3);
+        assert!(keys.contains(&1));
+        assert!(keys.contains(&2));
+        assert!(keys.contains(&3));
+    }
+}
