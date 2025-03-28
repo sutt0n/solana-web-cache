@@ -25,18 +25,11 @@ pub async fn run_web(
     cache: &Arc<Cache>,
     solana: Arc<Mutex<dyn SolanaClientTrait + Send + Sync>>,
 ) -> anyhow::Result<(), WebError> {
-    let app_state = AppState {
-        cache: Arc::clone(cache),
-        solana,
-    };
+    let app_state = AppState { cache: Arc::clone(cache), solana };
 
-    let app = Router::new()
-        .route("/isSlotConfirmed/{slot}", get(slot_get))
-        .with_state(app_state);
+    let app = Router::new().route("/isSlotConfirmed/{slot}", get(slot_get)).with_state(app_state);
 
-    let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{}", port))
-        .await
-        .unwrap();
+    let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{}", port)).await.unwrap();
 
     println!("Starting web server on port {}", port);
 
@@ -72,10 +65,7 @@ mod tests {
 
         let mock_solana = MockSolanaClientTrait::new();
 
-        let state = AppState {
-            cache,
-            solana: Arc::new(Mutex::new(mock_solana)),
-        };
+        let state = AppState { cache, solana: Arc::new(Mutex::new(mock_solana)) };
 
         let response = slot_get(State(state), Path(10)).await;
         assert_eq!(response.into_response().status(), StatusCode::OK);
@@ -86,15 +76,9 @@ mod tests {
         let cache = Arc::new(Cache::new(1000));
 
         let mut mock_solana = MockSolanaClientTrait::new();
-        mock_solana
-            .expect_is_slot_confirmed()
-            .withf(|&slot| slot == 10)
-            .returning(|_| true);
+        mock_solana.expect_is_slot_confirmed().withf(|&slot| slot == 10).returning(|_| true);
 
-        let state = AppState {
-            cache,
-            solana: Arc::new(Mutex::new(mock_solana)),
-        };
+        let state = AppState { cache, solana: Arc::new(Mutex::new(mock_solana)) };
 
         let response = slot_get(State(state), Path(10)).await;
         assert_eq!(response.into_response().status(), StatusCode::OK);
@@ -105,15 +89,9 @@ mod tests {
         let cache = Arc::new(Cache::new(1000));
 
         let mut mock_solana = MockSolanaClientTrait::new();
-        mock_solana
-            .expect_is_slot_confirmed()
-            .withf(|&slot| slot == 10)
-            .returning(|_| false);
+        mock_solana.expect_is_slot_confirmed().withf(|&slot| slot == 10).returning(|_| false);
 
-        let state = AppState {
-            cache,
-            solana: Arc::new(Mutex::new(mock_solana)),
-        };
+        let state = AppState { cache, solana: Arc::new(Mutex::new(mock_solana)) };
 
         let response = slot_get(State(state), Path(10)).await;
         assert_eq!(response.into_response().status(), StatusCode::NOT_FOUND);

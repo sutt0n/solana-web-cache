@@ -37,11 +37,7 @@ static SOLANA_GET_BLOCKS_THROTTLE_MS: u64 = 150;
 
 impl SolanaClient {
     pub async fn new(inner: Arc<dyn SolanaRpc + Send + Sync>, cache: Arc<Cache>) -> Self {
-        Self {
-            inner,
-            confirmed_blocks: cache,
-            last_confirmed_slot: Arc::new(Mutex::new(None)),
-        }
+        Self { inner, confirmed_blocks: cache, last_confirmed_slot: Arc::new(Mutex::new(None)) }
     }
 
     pub async fn init(cache: Arc<Cache>) -> Self {
@@ -69,10 +65,8 @@ impl SolanaClientTrait for SolanaClient {
                 }
             }
 
-            tokio::time::sleep(tokio::time::Duration::from_millis(
-                SOLANA_GET_SLOT_THROTTLE_MS,
-            ))
-            .await;
+            tokio::time::sleep(tokio::time::Duration::from_millis(SOLANA_GET_SLOT_THROTTLE_MS))
+                .await;
         }
     }
 
@@ -88,11 +82,7 @@ impl SolanaClientTrait for SolanaClient {
                 continue;
             }
             let slot = self.last_confirmed_slot.lock().await.unwrap();
-            let start_slot = if slot < chunk_size as u64 {
-                0
-            } else {
-                slot - chunk_size as u64
-            };
+            let start_slot = if slot < chunk_size as u64 { 0 } else { slot - chunk_size as u64 };
             let end_slot = if slot == 0 { 0 } else { slot - 1 };
 
             let confirmed_blocks = self.inner.get_blocks(start_slot, Some(end_slot)).await?;
@@ -113,10 +103,8 @@ impl SolanaClientTrait for SolanaClient {
                 }
             }
 
-            tokio::time::sleep(tokio::time::Duration::from_millis(
-                SOLANA_GET_BLOCKS_THROTTLE_MS,
-            ))
-            .await;
+            tokio::time::sleep(tokio::time::Duration::from_millis(SOLANA_GET_BLOCKS_THROTTLE_MS))
+                .await;
         }
     }
 
@@ -125,10 +113,7 @@ impl SolanaClientTrait for SolanaClient {
             return true;
         }
 
-        self.inner
-            .get_blocks(slot, Some(slot))
-            .await
-            .is_ok_and(|blocks| blocks.contains(&slot))
+        self.inner.get_blocks(slot, Some(slot)).await.is_ok_and(|blocks| blocks.contains(&slot))
     }
 }
 
@@ -146,23 +131,17 @@ mod tests {
 
         mock_rpc.expect_get_slot().returning(|| Ok(10));
 
-        mock_rpc
-            .expect_get_blocks()
-            .returning(|start_slot, end_slot| {
-                let blocks = (start_slot..=end_slot.unwrap_or(start_slot)).collect();
-                Ok(blocks)
-            });
+        mock_rpc.expect_get_blocks().returning(|start_slot, end_slot| {
+            let blocks = (start_slot..=end_slot.unwrap_or(start_slot)).collect();
+            Ok(blocks)
+        });
 
         let cache = Arc::new(Cache::new(1000));
         let rpc_arc: Arc<dyn SolanaRpc + Send + Sync> = Arc::new(mock_rpc);
 
         let mut solana_client = SolanaClient::new(rpc_arc, Arc::clone(&cache)).await;
 
-        let _ = timeout(
-            Duration::from_millis(500),
-            solana_client.poll_for_latest_slot(),
-        )
-        .await;
+        let _ = timeout(Duration::from_millis(500), solana_client.poll_for_latest_slot()).await;
 
         let result = timeout(
             Duration::from_millis(1000),

@@ -13,6 +13,8 @@ solana-client = "2.2.4"
 solana-sdk = "2.2.1"
 thiserror = "2.0.12"
 async-trait = "0.1.88"
+clap = { version = "4.4.0", features = ["derive"] }
+tokio-retry = "0.3.0"
 
 [dev-dependencies]
 mockall = "0.13.0"

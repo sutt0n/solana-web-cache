@@ -20,11 +20,8 @@ pub async fn run(
     let web_cache = Arc::clone(&cache);
     let web_solana = Arc::clone(&solana);
     handles.push(tokio::spawn(async move {
-        let _ = web_send.try_send(
-            web::run_web(3000, &web_cache, web_solana)
-                .await
-                .map_err(CliError::WebError),
-        );
+        let _ = web_send
+            .try_send(web::run_web(3000, &web_cache, web_solana).await.map_err(CliError::WebError));
     }));
 
     println!("Starting Solana slot polling");
@@ -32,12 +29,8 @@ pub async fn run(
     let solana_slot_client = Arc::clone(&solana);
     handles.push(tokio::spawn(async move {
         let mut solana = solana_slot_client.lock().await;
-        let _ = slot_send.try_send(
-            solana
-                .poll_for_latest_slot()
-                .await
-                .map_err(CliError::SolanaError),
-        );
+        let _ =
+            slot_send.try_send(solana.poll_for_latest_slot().await.map_err(CliError::SolanaError));
     }));
 
     println!("Starting Solana cache fulfillment");
@@ -74,13 +67,9 @@ mod tests {
 
         let mut mock_solana = MockSolanaClientTrait::new();
 
-        mock_solana
-            .expect_poll_for_latest_slot()
-            .returning(|| Ok(()));
+        mock_solana.expect_poll_for_latest_slot().returning(|| Ok(()));
 
-        mock_solana
-            .expect_contiguously_get_confirmed_blocks()
-            .returning(|_| Ok(()));
+        mock_solana.expect_contiguously_get_confirmed_blocks().returning(|_| Ok(()));
 
         mock_solana.expect_is_slot_confirmed().returning(|_| true);
 
@@ -88,7 +77,6 @@ mod tests {
 
         let result = run(mock_solana, cache).await;
 
-        // Ensure the run function exited successfully
         assert!(result.is_ok(), "CLI run should exit successfully");
     }
 }

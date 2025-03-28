@@ -10,10 +10,7 @@ pub struct Cache {
 
 impl Cache {
     pub fn new(max_size: usize) -> Self {
-        Cache {
-            inner: Arc::new(HashMap::new()),
-            max_size,
-        }
+        Cache { inner: Arc::new(HashMap::new()), max_size }
     }
 
     pub async fn len(&self) -> usize {
