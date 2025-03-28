@@ -4,6 +4,7 @@ use solana_client::rpc_client::RpcClient;
 use solana_sdk::clock::Slot;
 use tokio_retry::Retry;
 use tokio_retry::strategy::{ExponentialBackoff, jitter};
+use tracing::error;
 
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
@@ -25,7 +26,7 @@ impl SolanaRpc for RpcClient {
 
         let slot = Retry::spawn(retry_strategy, || async {
             self.get_slot().map_err(|err| {
-                eprintln!("RPC Error encountered: {}. Retrying...", err);
+                error!("RPC Error encountered: {}. Retrying...", err);
                 err
             })
         })
@@ -45,7 +46,7 @@ impl SolanaRpc for RpcClient {
 
         let blocks = Retry::spawn(retry_strategy, || async {
             self.get_blocks(start_slot, end_slot).map_err(|err| {
-                eprintln!("RPC Error encountered: {}. Retrying...", err);
+                error!("RPC Error encountered: {}. Retrying...", err);
                 err
             })
         })

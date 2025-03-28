@@ -15,6 +15,8 @@ thiserror = "2.0.12"
 async-trait = "0.1.88"
 clap = { version = "4.4.0", features = ["derive"] }
 tokio-retry = "0.3.0"
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["fmt", "env-filter"] }
 
 [dev-dependencies]
 mockall = "0.13.0"

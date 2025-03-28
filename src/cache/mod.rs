@@ -74,9 +74,9 @@ mod tests {
 
         // eviction
         cache.insert(3, 30).await.unwrap();
-        assert!(!cache.contains(&1).await);
         assert!(cache.contains(&2).await);
         assert!(cache.contains(&3).await);
+        assert!(!cache.contains(&1).await);
     }
 
     #[tokio::test]
