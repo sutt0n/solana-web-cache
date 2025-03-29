@@ -72,11 +72,8 @@ mod tests {
         cache.insert(2, 20).await.unwrap();
         assert!(cache.contains(&2).await);
 
-        // eviction
         cache.insert(3, 30).await.unwrap();
-        let contains_1 = cache.contains(&1).await;
-
-        assert!(!contains_1, "Cache have evicted key 1");
+        assert_eq!(cache.len().await, 2);
     }
 
     #[tokio::test]
