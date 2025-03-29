@@ -1,16 +1,17 @@
 use std::sync::Arc;
 
-use scc::{HashMap, hash_map::OccupiedEntry};
+use scc::{HashMap, Queue, hash_map::OccupiedEntry};
 
 #[derive(Clone, Debug)]
 pub struct Cache {
     inner: Arc<HashMap<u64, u64>>,
+    key_order: Arc<Queue<u64>>,
     max_size: usize,
 }
 
 impl Cache {
     pub fn new(max_size: usize) -> Self {
-        Cache { inner: Arc::new(HashMap::new()), max_size }
+        Cache { inner: Arc::new(HashMap::new()), key_order: Arc::new(Queue::default()), max_size }
     }
 
     pub async fn len(&self) -> usize {
@@ -27,29 +28,32 @@ impl Cache {
 
     pub async fn keys(&self) -> Vec<u64> {
         let mut keys = Vec::new();
-
-        let _ = async {
-            let mut iter = self.inner.first_entry_async().await;
-            while let Some(entry) = iter {
-                keys.push(*entry.key());
-                iter = entry.next_async().await;
-            }
+        let mut entry = self.inner.first_entry_async().await;
+        while let Some(e) = entry {
+            keys.push(*e.key());
+            entry = e.next_async().await;
         }
-        .await;
-
         keys
     }
 
     pub async fn insert(&self, key: u64, value: u64) -> anyhow::Result<(), (u64, u64)> {
-        if self.inner.len() >= self.max_size {
-            if let Some(first_entry) = self.inner.first_entry_async().await {
-                let oldest_key = *first_entry.key();
-                drop(first_entry);
-                let _ = self.inner.remove_async(&oldest_key).await;
+        if self.inner.contains_async(&key).await {
+            return self.inner.insert_async(key, value).await.map(|_| ());
+        }
+
+        while self.inner.len() >= self.max_size {
+            if let Some(evict_key) = self.key_order.pop() {
+                let evict_key: u64 = **evict_key;
+                if self.inner.remove_async(&evict_key).await.is_some() {
+                    break;
+                }
+            } else {
+                break;
             }
         }
 
-        self.inner.insert_async(key, value).await.map(|_| ())
+        self.key_order.push(key);
+        return self.inner.insert_async(key, value).await.map(|_| ());
     }
 
     pub async fn get(&self, key: &u64) -> Option<OccupiedEntry<'_, u64, u64>> {
@@ -74,6 +78,7 @@ mod tests {
 
         cache.insert(3, 30).await.unwrap();
         assert_eq!(cache.len().await, 2);
+        assert!(!cache.contains(&1).await);
     }
 
     #[tokio::test]
