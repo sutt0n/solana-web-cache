@@ -7,9 +7,19 @@ pub mod web;
 use std::sync::Arc;
 
 use cache::Cache;
+use clap::Parser;
 use solana::SolanaClient;
-use tokio::sync::Mutex;
 use tracing_subscriber::EnvFilter;
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+pub struct Opts {
+    #[clap(short, long)]
+    pub api_key: String,
+
+    #[clap(short, long)]
+    pub port: u64,
+}
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> anyhow::Result<()> {
@@ -17,10 +27,12 @@ async fn main() -> anyhow::Result<()> {
 
     tracing::info!("Application starting...");
 
-    let cache = Arc::new(Cache::new(1000));
-    let solana_client = Arc::new(SolanaClient::init(Arc::clone(&cache)).await);
+    let opts: Opts = Opts::parse();
 
-    if let Err(e) = cli::run(solana_client, cache).await {
+    let cache = Arc::new(Cache::new(1000));
+    let solana_client = Arc::new(SolanaClient::init(Arc::clone(&cache), opts.api_key).await);
+
+    if let Err(e) = cli::run(opts.port, solana_client, cache).await {
         tracing::error!("Application exited with error: {:?}", e);
     }
 

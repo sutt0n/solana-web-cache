@@ -7,6 +7,7 @@ use std::sync::Arc;
 use tracing::{error, info};
 
 pub async fn run(
+    web_port: u64,
     solana: Arc<dyn SolanaClientTrait + Send + Sync>,
     cache: Arc<Cache>,
 ) -> Result<(), CliError> {
@@ -21,7 +22,7 @@ pub async fn run(
     let web_solana = Arc::clone(&solana);
     handles.push(tokio::spawn(async move {
         web_send
-            .try_send(web::run_web(3000, &web_cache, web_solana).await.map_err(CliError::WebError))
+            .try_send(web::run_web(web_port, &web_cache, web_solana).await.map_err(CliError::WebError))
             .unwrap_or_else(|e| error!("Failed sending web task result: {:?}", e));
     }));
 
@@ -42,10 +43,7 @@ pub async fn run(
         let solana = solana_cache_client;
         cache_send
             .try_send(
-                solana
-                    .contiguously_get_confirmed_blocks(get_blocks_chunk_size)
-                    .await
-                    .map_err(CliError::SolanaError),
+                solana.contiguously_get_confirmed_blocks(get_blocks_chunk_size).await.map_err(CliError::SolanaError),
             )
             .unwrap_or_else(|e| error!("Failed sending cache fulfillment result: {:?}", e));
     }));
@@ -79,7 +77,7 @@ mod tests {
 
         let mock_solana = Arc::new(mock_solana);
 
-        let result = run(mock_solana, cache).await;
+        let result = run(3000, mock_solana, cache).await;
 
         assert!(result.is_ok(), "CLI run should exit successfully");
     }

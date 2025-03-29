@@ -18,6 +18,10 @@ impl Cache {
         self.inner.len()
     }
 
+    pub async fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+
     pub async fn is_max_size(&self) -> bool {
         self.inner.len() >= self.max_size
     }

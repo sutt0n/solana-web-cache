@@ -16,8 +16,7 @@ use tracing::info;
 #[async_trait]
 pub trait SolanaClientTrait: Send + Sync {
     async fn poll_for_latest_slot(&self) -> Result<(), SolanaError>;
-    async fn contiguously_get_confirmed_blocks(&self, chunk_size: usize)
-    -> Result<(), SolanaError>;
+    async fn contiguously_get_confirmed_blocks(&self, chunk_size: usize) -> Result<(), SolanaError>;
     async fn is_slot_confirmed(&self, slot: Slot) -> bool;
 }
 
@@ -28,23 +27,18 @@ pub struct SolanaClient {
     last_confirmed_slot: Arc<Mutex<Option<Slot>>>,
 }
 
-static SOLANA_DEVNET: &str = "https://solana-mainnet.api.syndica.io/api-key/232m5n6PA1xpfTEwbqiGiBhrWzUCr1Jaj6vdD6cfp3PWyEQ5jnPGdxijJmHKUYLUKP4T4WV\
-NM95kw157PsfyyBbqRDyrxtwykpG";
+static SOLANA_DEVNET: &str = "https://solana-mainnet.api.syndica.io/api-key";
 
 static SOLANA_GET_SLOT_THROTTLE_MS: u64 = 450;
 static SOLANA_GET_BLOCKS_THROTTLE_MS: u64 = 150;
 
 impl SolanaClient {
     pub async fn new(rpc: Arc<dyn SolanaRpc + Send + Sync>, cache: Arc<Cache>) -> Self {
-        Self {
-            inner: rpc,
-            confirmed_blocks: cache,
-            last_confirmed_slot: Arc::new(Mutex::new(None)),
-        }
+        Self { inner: rpc, confirmed_blocks: cache, last_confirmed_slot: Arc::new(Mutex::new(None)) }
     }
 
-    pub async fn init(cache: Arc<Cache>) -> Self {
-        let rpc = Arc::new(RpcClient::new(SOLANA_DEVNET.to_string()));
+    pub async fn init(cache: Arc<Cache>, api_key: String) -> Self {
+        let rpc = Arc::new(RpcClient::new(format!("{}/{}", SOLANA_DEVNET, api_key)));
         Self::new(rpc, cache).await
     }
 }
@@ -68,15 +62,11 @@ impl SolanaClientTrait for SolanaClient {
                 }
             }
 
-            tokio::time::sleep(tokio::time::Duration::from_millis(SOLANA_GET_SLOT_THROTTLE_MS))
-                .await;
+            tokio::time::sleep(tokio::time::Duration::from_millis(SOLANA_GET_SLOT_THROTTLE_MS)).await;
         }
     }
 
-    async fn contiguously_get_confirmed_blocks(
-        &self,
-        chunk_size: usize,
-    ) -> Result<(), SolanaError> {
+    async fn contiguously_get_confirmed_blocks(&self, chunk_size: usize) -> Result<(), SolanaError> {
         loop {
             info!("Cache size: {}", self.confirmed_blocks.len().await);
             if self.last_confirmed_slot.lock().await.is_none() {
@@ -85,8 +75,7 @@ impl SolanaClientTrait for SolanaClient {
                 continue;
             }
             let slot = self.last_confirmed_slot.lock().await.unwrap();
-            let start_slot =
-                if slot < chunk_size as u64 { 0 } else { slot.saturating_sub(chunk_size as u64) };
+            let start_slot = if slot < chunk_size as u64 { 0 } else { slot.saturating_sub(chunk_size as u64) };
             let end_slot = if slot == 0 { 0 } else { slot.saturating_sub(1) };
 
             let confirmed_blocks = self.inner.get_blocks(start_slot, Some(end_slot)).await?;
@@ -107,8 +96,7 @@ impl SolanaClientTrait for SolanaClient {
                 }
             }
 
-            tokio::time::sleep(tokio::time::Duration::from_millis(SOLANA_GET_BLOCKS_THROTTLE_MS))
-                .await;
+            tokio::time::sleep(tokio::time::Duration::from_millis(SOLANA_GET_BLOCKS_THROTTLE_MS)).await;
         }
     }
 
@@ -147,11 +135,7 @@ mod tests {
 
         let _ = timeout(Duration::from_millis(500), solana_client.poll_for_latest_slot()).await;
 
-        let result = timeout(
-            Duration::from_millis(1000),
-            solana_client.contiguously_get_confirmed_blocks(5),
-        )
-        .await;
+        let result = timeout(Duration::from_millis(1000), solana_client.contiguously_get_confirmed_blocks(5)).await;
 
         assert!(result.is_err());
 
